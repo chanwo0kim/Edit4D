@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Edit4D: Editable 4D Scene Generation with Textual Control</title>
+  <meta name="description" content="Edit4D constructs editable 4D scenes from separate background and dynamic character Gaussian representations, driven by a single text instruction." />
+  <meta property="og:title" content="Edit4D: Editable 4D Scene Generation with Textual Control" />
+  <meta property="og:description" content="Editable text-to-4D scene generation via stage-specific background, character, and composition pipelines." />
+  <meta property="og:image" content="static/images/teaser.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #ffffff;
+      --bg-soft: #f6f7f9;
+      --fg: #16181d;
+      --muted: #5d6470;
+      --border: #e3e6ea;
+      --accent: #c81e3a;
+      --accent-soft: #fdecef;
+      --highlight: #fff4d6;
+      --btn-bg: #16181d;
+      --btn-fg: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #111317;
+        --bg-soft: #191c21;
+        --fg: #e8eaed;
+        --muted: #9aa1ab;
+        --border: #2c3038;
+        --accent: #ff5c74;
+        --accent-soft: #3a1a21;
+        --highlight: #3a3220;
+        --btn-bg: #e8eaed;
+        --btn-fg: #111317;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 17px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+    .narrow { max-width: 820px; margin: 0 auto; }
+    section { padding: 48px 0; }
+    section + section { border-top: 1px solid var(--border); }
+    h2 {
+      font-size: 28px; font-weight: 700; letter-spacing: -0.01em;
+      text-align: center; margin: 0 0 24px;
+    }
+    h3 { font-size: 20px; font-weight: 600; margin: 36px 0 12px; }
+    p { margin: 0 0 14px; }
+    img, video { max-width: 100%; display: block; }
+    .caption { font-size: 15px; color: var(--muted); margin-top: 10px; }
+    .caption b { color: var(--fg); }
+    .caption a, section p a { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--border); }
+    .caption a:hover, section p a:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* ---------- Hero ---------- */
+    .hero { text-align: center; padding: 64px 0 32px; }
+    .hero h1 {
+      font-size: clamp(28px, 4.4vw, 42px);
+      line-height: 1.2; letter-spacing: -0.02em; margin: 0 auto 24px; max-width: 900px;
+    }
+    .hero h1 .name { color: var(--accent); }
+    .authors { font-size: 19px; margin-bottom: 8px; }
+    .authors span { white-space: nowrap; margin: 0 10px; }
+    .authors a { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--border); }
+    .authors a:hover { color: var(--accent); border-color: var(--accent); }
+    .authors sup, .affil sup { font-size: 0.7em; }
+    .affil { color: var(--muted); font-size: 15px; line-height: 1.6; }
+    .affil .corr { margin-top: 4px; font-size: 14px; }
+    .links { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 24px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 9px 20px; border-radius: 999px;
+      background: var(--btn-bg); color: var(--btn-fg);
+      font-size: 15px; font-weight: 500; text-decoration: none;
+      transition: opacity .15s;
+    }
+    .btn:hover { opacity: .82; }
+    .btn svg { width: 17px; height: 17px; fill: currentColor; }
+    .btn.disabled { opacity: .35; pointer-events: none; cursor: default; }
+
+    .teaser img { width: 100%; border-radius: 8px; }
+    .tldr {
+      margin-top: 18px; padding: 14px 18px; border-left: 4px solid var(--accent);
+      background: var(--bg-soft); border-radius: 0 8px 8px 0; font-size: 16px;
+    }
+
+    .abstract p { text-align: justify; hyphens: auto; }
+
+    /* ---------- Method ---------- */
+    .figure { margin: 0; }
+    .figure img { width: 100%; border-radius: 6px; background: #fff; }
+    .stages {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px; margin-top: 28px;
+    }
+    .stage {
+      padding: 16px 18px; border: 1px solid var(--border); border-radius: 10px;
+      background: var(--bg-soft); font-size: 15px; line-height: 1.55;
+    }
+    .stage .tag {
+      font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 4px;
+    }
+    .stage h4 { margin: 0 0 6px; font-size: 16px; }
+
+    /* ---------- Video comparison ---------- */
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 20px; }
+    .tab {
+      border: 1px solid var(--border); background: var(--bg); color: var(--fg);
+      padding: 7px 14px; border-radius: 999px; font: inherit; font-size: 14px;
+      cursor: pointer; transition: all .15s;
+    }
+    .tab:hover { border-color: var(--accent); }
+    .tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .vgrid {
+      display: grid; gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .vcard {
+      border: 1px solid var(--border); border-radius: 10px; padding: 8px;
+      background: var(--bg-soft);
+    }
+    .vcard.ours { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+    .vcard .label { font-size: 14px; font-weight: 600; padding: 2px 4px 8px; }
+    .vcard.ours .label { color: var(--accent); }
+    .vcard video { width: 100%; border-radius: 6px; background: #000; aspect-ratio: 16 / 9; object-fit: contain; }
+    .prompt-line { text-align: center; color: var(--muted); font-style: italic; margin-bottom: 16px; }
+
+    .edit-row {
+      display: grid; align-items: center; gap: 12px;
+      grid-template-columns: 1fr auto 1fr;
+    }
+    .edit-row.three { grid-template-columns: 1fr auto 1fr auto 1fr; }
+    .arrow { font-size: 26px; color: var(--accent); font-weight: 700; text-align: center; }
+    .vgrid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .method-row { margin-bottom: 18px; }
+    .method-tag {
+      display: inline-block; margin-bottom: 8px; padding: 2px 12px; border-radius: 999px;
+      background: var(--bg-soft); border: 1px solid var(--border); font-size: 14px; font-weight: 600;
+    }
+    .method-tag.ours { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+    /* ---------- Tables ---------- */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table {
+      border-collapse: collapse; width: 100%; font-size: 15px;
+      font-variant-numeric: tabular-nums;
+    }
+    th, td { padding: 7px 10px; text-align: center; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    thead th { font-weight: 600; border-bottom: 2px solid var(--fg); }
+    td:first-child, th:first-child { text-align: left; }
+    tr.ours td { background: var(--highlight); font-weight: 600; }
+    tr.group-start td { border-top: 2px solid var(--border); }
+    .setting { color: var(--muted); font-weight: 600; }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+
+    footer { padding: 32px 0 48px; text-align: center; font-size: 14px; color: var(--muted); }
+    footer a { color: inherit; }
+
+    @media (max-width: 720px) {
+      body { font-size: 16px; }
+      section { padding: 36px 0; }
+      .two-col { grid-template-columns: 1fr; }
+      .edit-row, .edit-row.three { grid-template-columns: 1fr; }
+      .arrow { transform: rotate(90deg); }
+      .vgrid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== Hero ==================== -->
+  <header class="hero container">
+    <h1><span class="name">Edit4D</span>: Editable 4D Scene Generation with Textual Control</h1>
+
+    <div class="authors">
+      <span><a href="https://sites.google.com/view/chanwookim0214/%ED%99%88" target="_blank" rel="noopener">Chanwoo Kim</a><sup>1,2</sup></span>
+      <span><a href="https://tackgeun.github.io/" target="_blank" rel="noopener">Tackgeun You</a><sup>1</sup></span>
+      <span><a href="https://www.hwasup.net/" target="_blank" rel="noopener">Hwasup Lim</a><sup>1,2,&dagger;</sup></span>
+    </div>
+    <div class="affil">
+      <div><sup>1</sup>Korea Institute of Science and Technology (KIST), Republic of Korea</div>
+      <div><sup>2</sup>University of Science and Technology (UST), Republic of Korea</div>
+      <div class="corr"><sup>&dagger;</sup>Corresponding author</div>
+    </div>
+
+    <div class="links">
+      <!-- arXiv 공개 후: href="#" 를 실제 주소로 바꾸고, disabled 클래스 / aria-disabled / tabindex 제거, "(Coming Soon)" 삭제 -->
+      <a class="btn disabled" href="#" aria-disabled="true" tabindex="-1">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm4 18H6V4h7v5h5zM8 12h8v2H8zm0 4h8v2H8z"/></svg>
+        arXiv (Coming Soon)
+      </a>
+    </div>
+  </header>
+
+  <!-- ==================== Teaser ==================== -->
+  <div class="container teaser">
+    <img src="static/images/teaser.jpg" alt="Overview of Edit4D: instruction decomposition, background and character generation, composition, and 4D scene editing" />
+    <div class="tldr">
+      <b>TL;DR</b> — Edit4D turns a single text instruction into a 4D Gaussian scene built from
+      <b>separate</b> background and dynamic-character components, so you can swap the character, change the
+      background, or move the camera freely without regenerating the whole scene.
+    </div>
+  </div>
+
+  <!-- ==================== Abstract ==================== -->
+  <section class="abstract">
+    <div class="container narrow">
+      <h2>Abstract</h2>
+      <p>
+        We introduce Edit4D, an editable text-to-4D scene generation framework that constructs 4D scenes from
+        separate background and dynamic character representations. Recent advances in generative models have
+        enabled text-driven dynamic scene synthesis, but editable 4D scene generation remains challenging due to
+        the need to preserve spatial geometry and temporal dynamics. Existing approaches typically generate holistic
+        scene videos, where the background and dynamic characters are coupled, making object-level editing and
+        flexible camera control difficult. Edit4D addresses these limitations through a stage-specific generation
+        pipeline. Given a user instruction, Edit4D first decomposes it into stage-specific prompts for background,
+        dynamic character, and scene&ndash;character composition. Using these prompts, we synthesize multi-view scene
+        images with text-to-image and camera-conditioned generative priors and reconstruct a background 3D Gaussian
+        splatting representation. We then generate a character image, animate it with an image-conditioned video
+        prior, reconstruct a 4D mesh, and bind Gaussian primitives to obtain a character representation. Finally,
+        both components are composed through text-guided segmentation and contact-aware optimization. A global scene
+        refinement is then performed to improve harmonization and rendering consistency. By integrating
+        stage-specific components, Edit4D enables controllable camera motion, flexible object-level editing, and the
+        practical construction of editable 4D scenes.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================== Method ==================== -->
+  <section id="method">
+    <div class="container">
+      <h2>Method</h2>
+      <figure class="figure">
+        <img src="static/images/pipeline.jpg" alt="Detailed generation pipeline of Edit4D" />
+      </figure>
+      <p class="caption">
+        <b>Generation pipeline.</b> A user instruction is decomposed into stage-specific prompts by an LLM.
+        The background scene and the dynamic character are generated in parallel, composed via text-guided
+        segmentation and contact-aware optimization, and finally refined jointly.
+      </p>
+
+      <div class="stages">
+        <div class="stage">
+          <div class="tag">Stage 1</div>
+          <h4>Instruction Decomposition</h4>
+          An LLM splits one instruction into background, character appearance, motion, and composition prompts,
+          so the whole pipeline runs from a single sentence.
+        </div>
+        <div class="stage">
+          <div class="tag">Stage 2</div>
+          <h4>Background Scene</h4>
+          A text-to-image model creates a reference scene, a camera-conditioned multi-view model expands it, and a
+          3D Gaussian splatting background is reconstructed.
+        </div>
+        <div class="stage">
+          <div class="tag">Stage 2</div>
+          <h4>Dynamic 3D Character</h4>
+          A character image is animated with a video prior, lifted to a 4D mesh, bound to Gaussians, and refined
+          with a deformation field.
+        </div>
+        <div class="stage">
+          <div class="tag">Stage 3</div>
+          <h4>Scene&ndash;Character Composition</h4>
+          Text-guided 3D masking finds the target surface (e.g. &ldquo;sofa&rdquo;); contact and penetration losses
+          place the character plausibly. A global SDS refinement and cast shadows harmonize the result.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== Results: videos ==================== -->
+  <section id="results">
+    <div class="container">
+      <h2>Qualitative Comparison</h2>
+      <p class="caption" style="text-align:center;margin:-8px 0 20px">
+        Comparison with
+        <a href="https://snap-research.github.io/4Real/" target="_blank" rel="noopener">4Real</a>,
+        <a href="https://research.nvidia.com/labs/nxp/dream-in-4d/" target="_blank" rel="noopener">Dream-in-4D</a>,
+        4Dfy, and
+        <a href="https://free4d.github.io/" target="_blank" rel="noopener">Free4D</a>.
+        Select a prompt below.
+      </p>
+      <div class="tabs" id="scene-tabs"></div>
+      <p class="prompt-line" id="scene-prompt"></p>
+      <div class="vgrid" id="compare-grid"></div>
+
+      <h3>Free4D with Open-Source Reference Videos</h3>
+      <p>
+        For a fair comparison, Free4D is rerun using reference videos generated by the open-source video generation
+        model <a href="https://arxiv.org/abs/2503.20314" target="_blank" rel="noopener">WAN</a>, and the resulting
+        4D scenes are compared with ours.
+      </p>
+      <div class="tabs" id="regen-tabs"></div>
+      <div class="vgrid two" id="regen-grid"></div>
+    </div>
+  </section>
+
+  <!-- ==================== Results: editing ==================== -->
+  <section id="editing">
+    <div class="container">
+      <h2>4D Scene Editing</h2>
+      <p class="narrow" style="text-align:center">
+        Because the background and the character are stored as separate Gaussian assets, either one can be replaced
+        while the other stays untouched &mdash; no full regeneration required.
+      </p>
+
+      <h3>Character &amp; Background Editing</h3>
+      <div class="edit-row three">
+        <div class="vcard">
+          <div class="label">Character-edited</div>
+          <video src="static/videos/ours_editing/2_character_editing.mp4" poster="static/videos/ours_editing/2_character_editing.jpg" preload="metadata" muted loop playsinline></video>
+        </div>
+        <div class="arrow" aria-hidden="true">&larr;</div>
+        <div class="vcard ours">
+          <div class="label">Original Scene</div>
+          <video src="static/videos/ours_editing/2_original.mp4" poster="static/videos/ours_editing/2_original.jpg" preload="metadata" muted loop playsinline></video>
+        </div>
+        <div class="arrow" aria-hidden="true">&rarr;</div>
+        <div class="vcard">
+          <div class="label">Background-edited</div>
+          <video src="static/videos/ours_editing/2_background_editing.mp4" poster="static/videos/ours_editing/2_background_editing.jpg" preload="metadata" muted loop playsinline></video>
+        </div>
+      </div>
+
+      <h3>Editing the 3D Representation</h3>
+      <div class="edit-row">
+        <div class="vcard ours">
+          <div class="label">Original Scene</div>
+          <video src="static/videos/ours_editing/1_original.mp4" poster="static/videos/ours_editing/1_original.jpg" preload="metadata" muted loop playsinline></video>
+        </div>
+        <div class="arrow" aria-hidden="true">&rarr;</div>
+        <div class="vcard">
+          <div class="label">Edited Scene</div>
+          <video src="static/videos/ours_editing/1_3D_edit.mp4" poster="static/videos/ours_editing/1_3D_edit.jpg" preload="metadata" muted loop playsinline></video>
+        </div>
+      </div>
+
+      <h3>Editing vs. Full Regeneration</h3>
+      <p>
+        Free4D represents the scene holistically, so any edit requires regenerating the entire 4D scene and the
+        background drifts. Edit4D reuses the untouched components, so only the edited part changes.
+      </p>
+      <div class="tabs" id="editcmp-tabs"></div>
+      <div id="editcmp-rows"></div>
+
+      <div class="two-col" style="margin-top:32px">
+        <figure class="figure">
+          <img src="static/images/editing.jpg" alt="Editing comparison between Free4D (top) and Edit4D (bottom)" />
+          <p class="caption"><b>Top:</b> Free4D, <b>bottom:</b> Edit4D. Full regeneration changes the bookshelf and
+            rug, while Edit4D preserves the original scene during composition and appearance editing.</p>
+        </figure>
+        <div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th></th><th colspan="2">Recomposition</th><th colspan="2">Appearance Edit</th></tr>
+                <tr><th>Metric</th><th>Free4D</th><th>Ours</th><th>Free4D</th><th>Ours</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Success (GLM-4.6) &uarr;</td><td>0%</td><td><b>100%</b></td><td>0%</td><td><b>100%</b></td></tr>
+                <tr><td>Success (Qwen3-VL) &uarr;</td><td>40%</td><td><b>100%</b></td><td>40%</td><td><b>100%</b></td></tr>
+                <tr><td>Success (Mistral-3.1) &uarr;</td><td>40%</td><td><b>100%</b></td><td>0%</td><td><b>100%</b></td></tr>
+                <tr><td>CLIP preservation &uarr;</td><td>0.964</td><td><b>0.997</b></td><td>0.957</td><td><b>0.991</b></td></tr>
+                <tr><td>DINO preservation &uarr;</td><td>0.901</td><td><b>0.997</b></td><td>0.871</td><td><b>0.988</b></td></tr>
+                <tr><td>Time (min) &darr;</td><td>180</td><td><b>45</b></td><td>180</td><td><b>45</b></td></tr>
+                <tr><td>User study &uarr;</td><td>16.4%</td><td><b>83.6%</b></td><td>10.0%</td><td><b>90.0%</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="caption">Editability evaluation. Success is judged by three VLMs on background preservation;
+            preservation is measured by CLIP / DINO similarity with character regions masked.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== Novel view ==================== -->
+  <section id="novel-view">
+    <div class="container">
+      <h2>Robustness to Novel Views</h2>
+      <p class="narrow" style="text-align:center">
+        A continuous, large camera rotation around the dynamic character shows both scene-level and object-level
+        consistency across substantially different viewpoints.
+      </p>
+      <div class="vgrid two">
+        <div class="vcard ours">
+          <div class="label">Panda Picnic &mdash; Large Camera Rotation</div>
+          <video src="static/videos/novel_view/panda_picnic_novel_view.mp4" poster="static/videos/novel_view/panda_picnic_novel_view.jpg" preload="metadata" muted loop playsinline></video>
+        </div>
+        <div class="vcard ours">
+          <div class="label">Rabbit at Ice-Cream Stand &mdash; Large Camera Rotation</div>
+          <video src="static/videos/novel_view/rabbit_icecream_novel_view.mp4" poster="static/videos/novel_view/rabbit_icecream_novel_view.jpg" preload="metadata" muted loop playsinline></video>
+        </div>
+      </div>
+
+      <h3>Comparison with Free4D</h3>
+      <figure class="figure">
+        <img src="static/images/novel_view_time.jpg" alt="Frontal and four novel camera views over time for Free4D and Edit4D" />
+      </figure>
+      <p class="caption">
+        Renderings from the canonical view and four large camera offsets over time. Methods that distill video
+        priors into one holistic scene degrade quickly off-axis; Edit4D builds the scene from explicit 3D components
+        and stays consistent.
+      </p>
+      <figure class="figure" style="margin-top:28px">
+        <img src="static/images/novel_view.jpg" alt="Novel-view renderings of Free4D and Edit4D" />
+      </figure>
+    </div>
+  </section>
+
+  <!-- ==================== Quantitative ==================== -->
+  <section id="quantitative">
+    <div class="container">
+      <h2>Quantitative Results</h2>
+      <div class="two-col">
+        <div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Setting / Method</th><th>Text Align</th><th>Consistency</th><th>Aesthetic</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><span class="setting">(a)</span> 4Real</td><td>26.7%</td><td>98.1%</td><td>52.6%</td></tr>
+                <tr><td>Free4D</td><td>24.7%</td><td>97.6%</td><td>62.3%</td></tr>
+                <tr class="ours"><td>Ours</td><td>27.1%</td><td>99.4%</td><td>68.3%</td></tr>
+                <tr class="group-start"><td><span class="setting">(b)</span> 4Dfy</td><td>27.6%</td><td>98.1%</td><td>56.2%</td></tr>
+                <tr><td>Free4D</td><td>25.2%</td><td>98.1%</td><td>61.2%</td></tr>
+                <tr class="ours"><td>Ours</td><td>28.0%</td><td>99.2%</td><td>66.2%</td></tr>
+                <tr class="group-start"><td><span class="setting">(c)</span> Dream-in-4D</td><td>26.6%</td><td>97.6%</td><td>56.2%</td></tr>
+                <tr><td>Free4D</td><td>25.5%</td><td>97.1%</td><td>63.2%</td></tr>
+                <tr class="ours"><td>Ours</td><td>29.2%</td><td>99.3%</td><td>74.8%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="caption">VBench metrics under the three evaluation settings of Free4D.</p>
+        </div>
+        <div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Method</th><th>3D Structure</th><th>Visual Quality</th></tr></thead>
+              <tbody>
+                <tr><td>Free4D</td><td>39.5%</td><td>35.0%</td></tr>
+                <tr class="ours"><td>Ours</td><td>60.5%</td><td>65.0%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="caption">Pairwise user study (25 participants) against Free4D using the same video generation model.</p>
+        </div>
+      </div>
+      <figure class="figure" style="margin-top:32px">
+        <img src="static/images/qualitative.jpg" alt="Qualitative comparison with 4Real, Dream-in-4D, 4Dfy and Free4D" />
+      </figure>
+      <p class="caption">Qualitative samples from settings (a), (b), and (c) in the table above.</p>
+    </div>
+  </section>
+
+  <!-- ==================== Ablation ==================== -->
+  <section id="ablation">
+    <div class="container">
+      <h2>Ablation Study</h2>
+      <div class="two-col">
+        <figure class="figure">
+          <img src="static/images/ablation_composition.jpg" alt="Ablation of composition: initialization, contact loss, penetration loss" />
+          <p class="caption"><b>Composition.</b> Without initialization the character lands in the wrong place;
+            without contact loss it floats; without penetration loss it sinks into the sofa.</p>
+        </figure>
+        <figure class="figure">
+          <img src="static/images/ablation_refinement.jpg" alt="Ablation of global scene refinement" />
+          <p class="caption"><b>Global scene refinement</b> sharpens fine details and harmonizes the character with
+            the scene lighting.</p>
+        </figure>
+      </div>
+      <div class="table-wrap narrow" style="margin-top:24px">
+        <table>
+          <thead>
+            <tr><th>Init.</th><th>L<sub>contact</sub></th><th>L<sub>penetration</sub></th><th>Global Refine</th><th>Text Align</th><th>Consistency</th><th>Aesthetic</th></tr>
+          </thead>
+          <tbody>
+            <tr><td></td><td>&check;</td><td>&check;</td><td></td><td>26.8%</td><td>98.7%</td><td>68.0%</td></tr>
+            <tr><td>&check;</td><td></td><td>&check;</td><td></td><td>25.0%</td><td>98.9%</td><td>67.2%</td></tr>
+            <tr><td>&check;</td><td>&check;</td><td></td><td></td><td>26.6%</td><td>98.9%</td><td>67.7%</td></tr>
+            <tr><td>&check;</td><td>&check;</td><td>&check;</td><td></td><td>26.5%</td><td>98.9%</td><td>68.2%</td></tr>
+            <tr class="ours"><td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td><td>28.1%</td><td>99.4%</td><td>69.0%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <footer class="container">
+    &copy; 2027 Edit4D authors.
+  </footer>
+
+  <script>
+    // Prompt -> methods that have a video in static/videos/compare_with/<method>/<prompt>.mp4
+    const SCENES = [
+      { prompt: "A fox playing videogame",     methods: ["4Real", "4Dfy", "Free4D"] },
+      { prompt: "A monkey eating a candy bar", methods: ["4Real", "Dream-in-4D", "4Dfy", "Free4D"] },
+      { prompt: "A rabbit eating a carrot",    methods: ["Dream-in-4D", "Free4D"] },
+      { prompt: "A goat drinking beer",        methods: ["4Real", "Free4D"] },
+      { prompt: "A monster reading a book",    methods: ["Dream-in-4D", "Free4D"] },
+    ];
+
+    const REGEN_CASES = ["A goat drinking beer", "A kangaroo cooking a meal"];
+    const EDIT_TASKS = [
+      { key: "composition-editing", name: "Composition Editing" },
+      { key: "character-editing",   name: "Character Editing" },
+    ];
+
+    // Play only the videos that are on screen, so the page stays light.
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) e.target.play().catch(() => {});
+        else e.target.pause();
+      });
+    }, { threshold: 0.25 });
+    function watch(video) { io.observe(video); }
+    document.querySelectorAll("video").forEach(watch);
+
+    function el(tag, className, text) {
+      const e = document.createElement(tag);
+      if (className) e.className = className;
+      if (text) e.textContent = text;
+      return e;
+    }
+
+    // base: path without extension, under static/videos/
+    function videoCard(label, base, isOurs) {
+      const card = el("div", "vcard" + (isOurs ? " ours" : ""));
+      const video = el("video");
+      const url = encodeURI(`static/videos/${base}`);
+      video.src = url + ".mp4";
+      video.poster = url + ".jpg";
+      video.preload = "metadata";
+      video.muted = video.loop = video.playsInline = true;
+      video.setAttribute("playsinline", "");
+      card.append(el("div", "label", label), video);
+      watch(video);
+      return card;
+    }
+
+    function arrow() {
+      const a = el("div", "arrow", "→");
+      a.setAttribute("aria-hidden", "true");
+      return a;
+    }
+
+    function makeTabs(container, labels, onSelect) {
+      labels.forEach((text, i) => {
+        const b = el("button", "tab", text);
+        b.type = "button";
+        b.onclick = () => {
+          [...container.children].forEach((x, j) => x.classList.toggle("active", i === j));
+          onSelect(i);
+        };
+        container.appendChild(b);
+      });
+      container.children[0].click();
+    }
+
+    // Main comparison
+    const grid = document.getElementById("compare-grid");
+    const promptLine = document.getElementById("scene-prompt");
+    makeTabs(document.getElementById("scene-tabs"), SCENES.map(s => s.prompt), i => {
+      const s = SCENES[i];
+      promptLine.textContent = `“${s.prompt}”`;
+      grid.replaceChildren(
+        ...s.methods.map(m => videoCard(m, `compare_with/${m}/${s.prompt}`, false)),
+        videoCard("Edit4D (Ours)", `compare_with/Ours/${s.prompt}`, true)
+      );
+    });
+
+    // Free4D rerun with open-source reference videos
+    const regenGrid = document.getElementById("regen-grid");
+    makeTabs(document.getElementById("regen-tabs"), REGEN_CASES, i => {
+      const c = REGEN_CASES[i];
+      regenGrid.replaceChildren(
+        videoCard("Free4D (Open-Source Reference)", `free4d_regeneration/Free4D/${c}`, false),
+        videoCard("Edit4D (Ours)", `free4d_regeneration/Ours/${c}`, true)
+      );
+    });
+
+    // Editing: Free4D vs. Ours, original -> edited
+    const editRows = document.getElementById("editcmp-rows");
+    makeTabs(document.getElementById("editcmp-tabs"), EDIT_TASKS.map(t => t.name), i => {
+      const t = EDIT_TASKS[i];
+      editRows.replaceChildren(...["Free4D", "Ours"].map(m => {
+        const isOurs = m === "Ours";
+        const row = el("div", "method-row");
+        const pair = el("div", "edit-row");
+        pair.append(
+          videoCard("Original", `editing_comparison/${t.key}/${m}/original`, isOurs),
+          arrow(),
+          videoCard("Edited", `editing_comparison/${t.key}/${m}/edited`, isOurs)
+        );
+        row.append(el("div", "method-tag" + (isOurs ? " ours" : ""), isOurs ? "Edit4D (Ours)" : "Free4D"), pair);
+        return row;
+      }));
+    });
+  </script>
+</body>
+</html>
