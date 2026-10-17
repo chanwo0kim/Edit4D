@@ -168,6 +168,19 @@
 
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
 
+    /* ---------- BibTeX ---------- */
+    pre {
+      position: relative; background: var(--bg-soft); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px; overflow-x: auto; margin: 0;
+      font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 13.5px; line-height: 1.55;
+    }
+    .copy {
+      position: absolute; top: 10px; right: 10px; font: inherit; font-size: 12px;
+      padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--fg); cursor: pointer;
+    }
+    .copy:hover { border-color: var(--accent); color: var(--accent); }
     footer { padding: 32px 0 48px; text-align: center; font-size: 14px; color: var(--muted); }
     footer a { color: inherit; }
 
@@ -199,10 +212,9 @@
     </div>
 
     <div class="links">
-      <!-- arXiv 공개 후: href="#" 를 실제 주소로 바꾸고, disabled 클래스 / aria-disabled / tabindex 제거, "(Coming Soon)" 삭제 -->
-      <a class="btn disabled" href="#" aria-disabled="true" tabindex="-1">
+      <a class="btn" href="https://arxiv.org/abs/2610.21668" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm4 18H6V4h7v5h5zM8 12h8v2H8zm0 4h8v2H8z"/></svg>
-        arXiv (Coming Soon)
+        arXiv
       </a>
     </div>
   </header>
@@ -502,8 +514,21 @@
     </div>
   </section>
 
+  <!-- ==================== BibTeX ==================== -->
+  <section id="bibtex">
+    <div class="container narrow">
+      <h2>BibTeX</h2>
+<pre id="bib"><button class="copy" type="button" onclick="copyBib(this)">Copy</button><code>@article{kim2026edit4d,
+  title   = {Edit4D: Editable 4D Scene Generation with Textual Control},
+  author  = {Kim, Chanwoo and You, Tackgeun and Lim, Hwasup},
+  journal = {arXiv preprint arXiv:2610.21668},
+  year    = {2026}
+}</code></pre>
+    </div>
+  </section>
+
   <footer class="container">
-    &copy; 2027 Edit4D authors.
+    &copy; 2026 Edit4D authors.
   </footer>
 
   <script>
@@ -612,6 +637,14 @@
         return row;
       }));
     });
+
+    function copyBib(btn) {
+      const text = document.querySelector("#bib code").textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = "Copied!";
+        setTimeout(() => (btn.textContent = "Copy"), 1500);
+      });
+    }
   </script>
 </body>
 </html>
